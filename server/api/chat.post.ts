@@ -1,8 +1,9 @@
-import type { UIMessage } from 'ai'
+import type { GenUIMessage } from '#shared/genui'
 import { createGoogle } from '@ai-sdk/google'
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  isStepCount,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -10,7 +11,12 @@ import {
 
 // The system prompt: how the assistant behaves in every conversation.
 const INSTRUCTIONS = `You are a friendly assistant in a demo app about generative UI.
-Answer briefly and use Markdown when it helps.`
+Answer briefly and use Markdown when it helps.
+
+You can show visual components by calling tools; the page renders each tool result as a card.
+- For weather questions, call showWeather once per city. The card already shows every number,
+  so afterwards reply with one short sentence (for example, what to wear). Don't repeat the data.
+- If a tool fails, explain the problem in one sentence and suggest a fix.`
 
 // A lazy handler runs the outer function once, on the first request,
 // so the Gemini provider is created once and reused by every request.
@@ -25,10 +31,11 @@ export default defineLazyEventHandler(() => {
     // The browser sends the whole conversation on every request: the model has no memory.
     const body = await readBody(event)
 
-    // Never trust the request body: check it has the shape of chat messages.
-    let messages: UIMessage[]
+    // Never trust the request body: check it has the shape of chat messages. Passing the
+    // tools also checks the inputs and outputs of earlier tool calls against their schemas.
+    let messages: GenUIMessage[]
     try {
-      messages = await validateUIMessages({ messages: body?.messages })
+      messages = await validateUIMessages<GenUIMessage>({ messages: body?.messages, tools: genuiTools })
     }
     catch {
       throw createError({ statusCode: 400, statusMessage: 'Invalid chat messages' })
@@ -39,6 +46,11 @@ export default defineLazyEventHandler(() => {
       instructions: INSTRUCTIONS,
       // UI messages (what the page shows) -> model messages (what the LLM reads).
       messages: await convertToModelMessages(messages),
+      // The tools the model may call (auto-imported from server/utils/genui-tools.ts).
+      tools: genuiTools,
+      // A "step" is one call to Gemini. Step 1: the model calls a tool. Step 2: it reads the
+      // result and writes its reply. The limit stops loops and protects the free-tier quota.
+      stopWhen: isStepCount(3),
     })
 
     // Stream the reply back as "UI message parts", the format useChat understands.
@@ -50,6 +62,9 @@ export default defineLazyEventHandler(() => {
         onError: error => error instanceof Error
           ? error.message
           : 'Unknown error',
+        // Failed tool calls keep their own error text (e.g. "No city found..."), the same text
+        // the model sees, instead of being replaced by the result of onError.
+        redactToolErrors: false,
       }),
     })
   })
