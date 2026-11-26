@@ -4,3 +4,5 @@ shellEmulator: true
 
 allowBuilds:
   esbuild: true
+  # Its postinstall only switches between Vue 2 and 3 builds; the Vue 3 build ships by default.
+  vue-demi: false

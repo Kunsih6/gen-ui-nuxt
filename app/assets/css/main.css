@@ -1,0 +1,4 @@
+/* Tailwind v4 is configured from CSS: this import enables its utility classes. */
+@import "tailwindcss";
+/* Nuxt UI's theme (colors, CSS variables) and the styles of its components. */
+@import "@nuxt/ui";
