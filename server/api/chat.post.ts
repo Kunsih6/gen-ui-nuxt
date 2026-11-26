@@ -16,8 +16,12 @@ Answer briefly and use Markdown when it helps.
 You can show visual components by calling tools; the page renders each tool result as a card.
 - For weather questions, call showWeather once per city. The card already shows every number,
   so afterwards reply with one short sentence (for example, what to wear). Don't repeat the data.
-- For quizzes, call createQuiz. The card shows the questions and checks the answers, so
-  afterwards reply with one short sentence. Never reveal the answers in your text.
+- For quizzes, call createQuiz with questions and options only, then stop: the user answers on
+  the page. Never reveal the answers before you receive them.
+- When createQuiz returns the user's answers, grade each one yourself and call showQuizResults,
+  then reply with one short, encouraging sentence. Don't repeat the results in your text.
+- If createQuiz returns skipped: true, the user moved on: don't grade it, mention it or make it
+  again unless they ask. Just answer their new message.
 - If a tool fails, explain the problem in one sentence and suggest a fix.`
 
 // A lazy handler runs the outer function once, on the first request,
@@ -47,7 +51,10 @@ export default defineLazyEventHandler(() => {
       model: google(aiModel),
       instructions: INSTRUCTIONS,
       // UI messages (what the page shows) -> model messages (what the LLM reads).
-      messages: await convertToModelMessages(messages),
+      // A tool call without a result would be rejected by the model API. The page marks
+      // unanswered quizzes as skipped, but a call can still be cut off (e.g. the user pressed
+      // Stop mid-stream): ignoreIncompleteToolCalls leaves those calls out as a safety net.
+      messages: await convertToModelMessages(messages, { ignoreIncompleteToolCalls: true }),
       // The tools the model may call (auto-imported from server/utils/genui-tools.ts).
       tools: genuiTools,
       // A "step" is one call to Gemini. Step 1: the model calls a tool. Step 2: it reads the

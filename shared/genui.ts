@@ -37,24 +37,49 @@ export type Weather = z.infer<typeof weatherSchema>
 
 // --- createQuiz ---------------------------------------------------------------
 
-// Here the INPUT is the content: the model writes the whole quiz as the tool's arguments.
+// Here the INPUT is the content: the model writes the quiz as the tool's arguments.
+// Only questions and options: no correct answers, so the browser can't see them.
 // Every .describe() steers what the model writes, so be precise.
 const quizSchema = z.object({
   title: z.string().describe('Short title for the quiz, e.g. "Vue basics"'),
   questions: z.array(z.object({
     question: z.string(),
-    options: z.array(z.string()).min(2).max(4).describe('2 to 4 possible answers'),
-    answerIndex: z.number().int().min(0).max(3).describe('Index of the correct answer in `options`'),
-    explanation: z.string().describe('One sentence explaining the correct answer'),
+    options: z.array(z.string()).min(2).max(4).describe('2 to 4 possible answers, exactly one of them right'),
   })).min(1).max(5).describe('1 to 5 questions, 3 if the user does not say'),
 })
 
-// The output is only a receipt for the model: the quiz is on screen.
-const quizShownSchema = z.object({
-  questionCount: z.number(),
+// The OUTPUT doesn't come from the server: the browser sends it when the user submits,
+// or marks the quiz as skipped when the user sends a new message instead of answering.
+// The option texts (not their positions) are unambiguous for the model to grade.
+const quizAnswersSchema = z.object({
+  answers: z.array(z.string()).describe('The option the user chose for each question, in order'),
+  skipped: z.boolean().describe('True if the user sent a new message instead of answering; '
+    + '`answers` is then empty'),
 })
 
 export type Quiz = z.infer<typeof quizSchema>
+export type QuizAnswers = z.infer<typeof quizAnswersSchema>
+
+// --- showQuizResults ----------------------------------------------------------
+
+// Input: the model's grading of the user's answers, drawn as a results card.
+const quizResultsSchema = z.object({
+  results: z.array(z.object({
+    question: z.string().describe('The question, copied from the quiz'),
+    correct: z.boolean().describe('Whether the user\'s answer is right'),
+    correctAnswer: z.string().describe('The text of the right option'),
+    explanation: z.string().describe('One sentence explaining the right answer'),
+  })).describe('One entry per quiz question, in the same order as the quiz'),
+})
+
+// Output: the score, counted by our code rather than by the model.
+const quizScoreSchema = z.object({
+  score: z.number(),
+  total: z.number(),
+})
+
+export type QuizResults = z.infer<typeof quizResultsSchema>
+export type QuizScore = z.infer<typeof quizScoreSchema>
 
 // --- The catalog ----------------------------------------------------------------
 
@@ -62,7 +87,8 @@ export type Quiz = z.infer<typeof quizSchema>
 // Adding a GenUI component starts here.
 export const genuiSchemas = {
   showWeather: { inputSchema: weatherInputSchema, outputSchema: weatherSchema },
-  createQuiz: { inputSchema: quizSchema, outputSchema: quizShownSchema },
+  createQuiz: { inputSchema: quizSchema, outputSchema: quizAnswersSchema },
+  showQuizResults: { inputSchema: quizResultsSchema, outputSchema: quizScoreSchema },
 }
 
 type Schemas = typeof genuiSchemas
@@ -77,6 +103,7 @@ export type GenUITools = {
 export type GenUIToolName = keyof GenUITools
 
 // A chat message whose tool parts are typed: a `tool-showWeather` part has a typed
-// `input` ({ city }) and `output` (Weather); a `tool-createQuiz` part has a Quiz `input`.
+// `input` ({ city }) and `output` (Weather); a `tool-createQuiz` part has a Quiz `input`
+// and the user's QuizAnswers as `output`.
 export type GenUIMessage = UIMessage<unknown, UIDataTypes, GenUITools>
 export type GenUIToolPart = ToolUIPart<GenUITools>

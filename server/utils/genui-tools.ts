@@ -19,12 +19,26 @@ export const genuiTools = {
 
   createQuiz: tool({
     description: 'Show an interactive multiple-choice quiz that the user answers by clicking. '
-      + 'Use it when the user asks for a quiz, a test or practice questions on a topic.',
+      + 'Use it when the user asks for a quiz, a test or practice questions on a topic. '
+      + 'Write only the questions and options, never the answers. The result of this tool is '
+      + 'the option the user chose for each question.',
     inputSchema: genuiSchemas.createQuiz.inputSchema,
     outputSchema: genuiSchemas.createQuiz.outputSchema,
     strict: true,
-    // Nothing to fetch: the model already wrote the whole quiz as the input. We still need
-    // `execute`, because a tool without it waits for the browser to answer (that's Phase 4).
-    execute: ({ questions }) => ({ questionCount: questions.length }),
+    // No `execute`: this is a client-side tool. The server stops after the model calls it,
+    // and the browser provides the result (the user's answers) with addToolOutput.
+  }),
+
+  showQuizResults: tool({
+    description: 'Show the grading of a quiz as a results card. Call it right after you receive '
+      + 'the user\'s answers from createQuiz, with one entry per question.',
+    inputSchema: genuiSchemas.showQuizResults.inputSchema,
+    outputSchema: genuiSchemas.showQuizResults.outputSchema,
+    strict: true,
+    // The model grades; our code only counts, so the score can't be miscounted.
+    execute: ({ results }) => ({
+      score: results.filter(result => result.correct).length,
+      total: results.length,
+    }),
   }),
 }
