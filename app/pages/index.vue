@@ -20,6 +20,7 @@ const { messages, status, error, sendMessage, regenerate, stop } = useChat<GenUI
 const suggestions = [
   'What\'s the weather in Guatemala City?',
   'Compare the weather in Madrid and Tokyo',
+  'Give me a 3-question quiz about Vue',
 ]
 
 function send(text: string) {

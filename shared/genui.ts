@@ -35,12 +35,34 @@ const weatherSchema = z.object({
 
 export type Weather = z.infer<typeof weatherSchema>
 
+// --- createQuiz ---------------------------------------------------------------
+
+// Here the INPUT is the content: the model writes the whole quiz as the tool's arguments.
+// Every .describe() steers what the model writes, so be precise.
+const quizSchema = z.object({
+  title: z.string().describe('Short title for the quiz, e.g. "Vue basics"'),
+  questions: z.array(z.object({
+    question: z.string(),
+    options: z.array(z.string()).min(2).max(4).describe('2 to 4 possible answers'),
+    answerIndex: z.number().int().min(0).max(3).describe('Index of the correct answer in `options`'),
+    explanation: z.string().describe('One sentence explaining the correct answer'),
+  })).min(1).max(5).describe('1 to 5 questions, 3 if the user does not say'),
+})
+
+// The output is only a receipt for the model: the quiz is on screen.
+const quizShownSchema = z.object({
+  questionCount: z.number(),
+})
+
+export type Quiz = z.infer<typeof quizSchema>
+
 // --- The catalog ----------------------------------------------------------------
 
 // Every tool the model can call, with the schemas of its input and output.
 // Adding a GenUI component starts here.
 export const genuiSchemas = {
   showWeather: { inputSchema: weatherInputSchema, outputSchema: weatherSchema },
+  createQuiz: { inputSchema: quizSchema, outputSchema: quizShownSchema },
 }
 
 type Schemas = typeof genuiSchemas
@@ -55,6 +77,6 @@ export type GenUITools = {
 export type GenUIToolName = keyof GenUITools
 
 // A chat message whose tool parts are typed: a `tool-showWeather` part has a typed
-// `input` ({ city }) and `output` (Weather).
+// `input` ({ city }) and `output` (Weather); a `tool-createQuiz` part has a Quiz `input`.
 export type GenUIMessage = UIMessage<unknown, UIDataTypes, GenUITools>
 export type GenUIToolPart = ToolUIPart<GenUITools>

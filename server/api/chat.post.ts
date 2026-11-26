@@ -16,6 +16,8 @@ Answer briefly and use Markdown when it helps.
 You can show visual components by calling tools; the page renders each tool result as a card.
 - For weather questions, call showWeather once per city. The card already shows every number,
   so afterwards reply with one short sentence (for example, what to wear). Don't repeat the data.
+- For quizzes, call createQuiz. The card shows the questions and checks the answers, so
+  afterwards reply with one short sentence. Never reveal the answers in your text.
 - If a tool fails, explain the problem in one sentence and suggest a fix.`
 
 // A lazy handler runs the outer function once, on the first request,
